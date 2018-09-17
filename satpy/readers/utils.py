@@ -26,6 +26,7 @@ import warnings
 from contextlib import closing
 from io import BytesIO
 from subprocess import Popen, PIPE
+import h5py
 
 import numpy as np
 import pyproj
@@ -57,7 +58,7 @@ def np2str(value):
             issubclass(value.dtype.type, (np.str_, np.string_, np.object_)) \
             and value.size == 1:
         value = value.item()
-        if not isinstance(value, str):
+        if not isinstance(value, str) and not isinstance(value, h5py.h5r.Reference):
             # python 3 - was scalar numpy array of bytes
             # otherwise python 2 - scalar numpy array of 'str'
             value = value.decode()
