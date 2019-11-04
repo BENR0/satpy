@@ -39,8 +39,8 @@ import h5py
 from pyresample import geometry
 from satpy.readers.hdf5_utils import HDF5FileHandler
 
-from satpy.readers.msg_base import SEVIRICalibrationHandler
-from satpy.readers.msg_base import (CHANNEL_NAMES, CALIB, SATNUM)
+from satpy.readers.seviri_base import SEVIRICalibrationHandler
+from satpy.readers.seviri_base import (CHANNEL_NAMES, CALIB, SATNUM)
 from satpy.readers.eum_base import timecds2datetime
 
 logger = logging.getLogger("hdf5_msg")
