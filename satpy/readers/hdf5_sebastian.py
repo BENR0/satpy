@@ -232,6 +232,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         COFF, LOFF = offsets
         msg_x_coord = (msg_x - COFF) - 0.5
         msg_y_coord = (LOFF - msg_y) + 0.5
+
         return self.from_msg_space_coordinate(msg_x_coord, msg_y_coord, gridsteps)
 
     def get_area_extent(self, bounds, offsets, gridsteps):
@@ -257,10 +258,10 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         coff = ncols/2
         offsets = (coff, loff)
 
-        ll_x = 1488
-        ll_y = 763
-        ur_x = 2455
-        ur_y = 53
+        ll_x = 1489
+        ll_y = 764
+        ur_x = 2456
+        ur_y = 54
         bounds = (ll_x, ur_y, ur_x, ll_y)
         ncols = ur_x -ll_x
         nlines = ll_y - ur_y
