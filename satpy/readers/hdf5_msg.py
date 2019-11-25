@@ -205,101 +205,95 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         return timecds2datetime({k.capitalize(): v for k,v in time.items()})
 
-    def get_xy_from_linecol(self, line, col, offsets, factors):
-        """Get the intermediate coordinates from line & col.
+    #from nc reader
+    def get_area_extent(self, dsid):
 
-        Intermediate coordinates are actually the instruments scanning angles.
-        """
-        loff, coff = offsets
-        lfac, cfac = factors
-        x__ = (col - coff) / cfac * 2**16
-        y__ = - (line - loff) / lfac * 2**16
+        # following calculations assume grid origin is south-east corner
+        # section 7.2.4 of MSG Level 1.5 Image Data Format Description
+        # origins = {0: 'NW', 1: 'SW', 2: 'SE', 3: 'NE'}
+        # grid_origin = self.nc.attrs['vis_ir_grid_origin']
+        # grid_origin = int(grid_origin, 16)
+        # if grid_origin != 2:
+        #     raise NotImplementedError(
+        #         'Grid origin not supported number: {}, {} corner'
+        #         .format(grid_origin, origins[grid_origin])
+        #     )
 
-        return x__, y__
+        ds_type = "VIS_IR"
 
-    def from_msg_space_coordinate(self, x, y, gridsteps):
-        COLUMN_DIR_GRID_STEP, LINE_DIR_GRID_STEP = gridsteps
-        return x * LINE_DIR_GRID_STEP, y * COLUMN_DIR_GRID_STEP
+        if dsid.name == "HRV":
+            ds_type = "HRV"
 
-    def from_top_left_of_north_west_pixel_zero_based(self, msg_x, msg_y, offsets, gridsteps):
-        """
-        Calculate coordinates based on pixel count and gridstep.
+        refGrid = self.mda["ImageDescription"]["ImageDescription_DESCR"]["ReferenceGrid" + ds_type]
 
-        Parameters
-        ----------
-        msg_x : int
-            Pixel count in x direction with origin top left
-        msg_y : int
-            Pixel count in y direction with origin top left
-        offsets : tuple of int
-            (column offset, line offset)
-        gridsteps : tuple of int
-            (column gridstep, line gridstep)
+        center_point = 3712/2
 
-        Returns
-        -------
-        tuple of float
-            Coordinates in geostationary projection (x,y)
+        column_step = float(refGrid["ColumnDirGridStep"]) * 1000
 
-        """
-        COFF, LOFF = offsets
-        msg_x_coord = (msg_x - COFF) - 0.5
-        msg_y_coord = (LOFF - msg_y) + 0.5
-        return self.from_msg_space_coordinate(msg_x_coord, msg_y_coord, gridsteps)
+        line_step = float(refGrid["LineDirGridStep"]) * 1000
 
-    def get_area_extent(self, bounds, offsets, gridsteps):
-        """Get the area extent of the file."""
+        # check for Earth model as this affects the north-south and
+        # west-east offsets
+        # section 3.1.4.2 of MSG Level 1.5 Image Data Format Description
+        earth_model = int(self.mda["GeometricProcessing"]["GeometricProcessing_DESCR"]["EarthModel"]["TypeOfEarthModel"]) #int(self.nc.attrs['type_of_earth_model'], 16)
+        if earth_model == 2:
+            ns_offset = 0  # north +ve
+            we_offset = 0  # west +ve
+        elif earth_model == 1:
+            ns_offset = -0.5  # north +ve
+            we_offset = 0.5  # west +ve
+        else:
+            raise NotImplementedError(
+                'unrecognised earth model: {}'.format(earth_model)
+            )
 
-        ll_x, ll_y = self.from_top_left_of_north_west_pixel_zero_based(bounds[0], bounds[1], offsets, gridsteps)
+        #from nc file reader
+        #self.north = int(self.nc.attrs['north_most_line'])
+        #self.east = int(self.nc.attrs['east_most_pixel'])
+        #self.west = int(self.nc.attrs['west_most_pixel'])
+        #self.south = int(self.nc.attrs['south_most_line'])
 
-        ur_x, ur_y = self.from_top_left_of_north_west_pixel_zero_based(bounds[2], bounds[3], offsets, gridsteps)
 
-        return ll_x, ll_y, ur_x, ur_y
+        # hdf5 files attributes for cropped data
+        # if "METADATA" in self.mda.keys():
+        #     subset = self.mda["METADATA"]["SUBSET"]
+        #     ll_x = int(subset[ds_type + "WestColumnSelectedRectangle"])
+        #     ll_y = int(subset[ds_type + "SouthLineSelectedRectangle"])
+        #     ur_x = int(subset[ds_type + "EastColumnSelectedRectangle"])
+        #     ur_y = int(subset[ds_type + "NorthLineSelectedRectangle"])
+        #     bounds = (ncols - ll_x, nlines - ll_y, ncols - ur_x, nlines - ur_y)
+        #     ncols = ll_x - ur_x + 1
+        #     nlines = ur_y - ll_y + 1
+
+        #hardwired to fulldisk
+        west = 3712
+        south = 1
+        east = 1
+        north = 3712
+
+        # section 3.1.5 of MSG Level 1.5 Image Data Format Description
+        ll_c = (center_point - west - 0.5 + we_offset) * column_step
+        ll_l = (south - center_point - 0.5 + ns_offset) * line_step
+        ur_c = (center_point - east + 0.5 + we_offset) * column_step
+        ur_l = (north - center_point + 0.5 + ns_offset) * line_step
+        area_extent = (ll_c, ll_l, ur_c, ur_l)
+
+        return area_extent
 
     def get_area_def(self, dsid):
         """Get the area definition of the band."""
         ds_type = "VIS_IR"
-        #refGrid = self.mda["ImageDescription"]["ImageDescription_DESCR"]["ReferenceGridVIS_IR"]
 
         if dsid.name == "HRV":
             ds_type = "HRV"
-            #refGrid = self.mda["ImageDescription"]["ImageDescription_DESCR"]["ReferenceGridHRV"]
 
         refGrid = self.mda["ImageDescription"]["ImageDescription_DESCR"]["ReferenceGrid" + ds_type]
 
         nlines = int(refGrid["NumberOfLines"])
         ncols = int(refGrid["NumberOfColumns"])
-        linegridstep = float(refGrid["LineDirGridStep"]) * 1000
-        colgridstep = float(refGrid["ColumnDirGridStep"]) * 1000
-        gridsteps = (colgridstep, linegridstep)
-
-        #cfac = np.int32(self.mda["cfac"])
-        #lfac = np.int32(self.mda["lfac"])
-        #loff = np.float32(self.mda["loff"])
-        loff = nlines/2
-        coff = ncols/2
-        offsets = (coff, loff)
-
-        #cases: - file contains fulldisk load fulldisk x
-        #       - file contains fulldisk and subset defined
-        #       - file contains subset load full subset x
-        #       - file contains subset and load subset of subset
-
-        bounds = (0, 0, ncols, nlines)
-        #bounds = (ncols, nlines, 0, 0)
-        if "METADATA" in self.mda.keys():
-            subset = self.mda["METADATA"]["SUBSET"]
-            ll_x = int(subset[ds_type + "WestColumnSelectedRectangle"])
-            ll_y = int(subset[ds_type + "SouthLineSelectedRectangle"])
-            ur_x = int(subset[ds_type + "EastColumnSelectedRectangle"])
-            ur_y = int(subset[ds_type + "NorthLineSelectedRectangle"])
-            bounds = (ncols - ll_x, nlines - ur_y, ncols - ur_x, nlines - ll_y)
-            ncols = ll_x - ur_x + 1
-            nlines = ur_y - ll_y + 1
 
 
-
-        area_extent = self.get_area_extent(bounds, offsets, gridsteps)
+        area_extent = self.get_area_extent(dsid)
 
         b = self.mda["projection_parameters"]["b"]
         a = self.mda["projection_parameters"]["a"]
