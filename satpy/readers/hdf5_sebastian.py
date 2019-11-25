@@ -262,7 +262,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         ll_y = 764
         ur_x = 2456
         ur_y = 54
-        bounds = (ll_x, ur_y, ur_x, ll_y)
+        bounds = (ll_x, ll_y, ur_x, ur_y)
         ncols = ur_x -ll_x
         nlines = ll_y - ur_y
 
@@ -296,7 +296,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
     def get_dataset(self, dataset_id, ds_info):
         ds_path = ds_info.get("file_key", "{}".format(dataset_id))
         #channel_id = int(self.mda[ds_path]["LineSideInfo_DESCR"]["ChannelId"])
-        res = self[ds_path][::-1,:]
+        res = self[ds_path]
         #calib = ds_info.get("calibration", "{}".format(dataset_id))
         #res = self.calibrate(res, calib, channel_id) #key.calibration)
         res.attrs["units"] = ds_info["units"]
