@@ -38,6 +38,16 @@ import numpy as np
 LOG = logging.getLogger(__name__)
 
 
+def _apply(func):
+    fname = func.__name__
+    def xr_interface(*args, **kwargs):
+        inst = args[0]
+        for k in inst.datasets.keys():
+             inst[k] = getattr(inst[k], fname)(**kwargs)
+        return
+    return xr_interface
+
+
 class DelayedGeneration(KeyError):
     """Mark that a dataset can't be generated without further modification."""
 
@@ -1357,6 +1367,21 @@ class Scene(MetadataObject):
                                           **kwargs)
         return writer.save_datasets(datasets, compute=compute, **save_kwargs)
 
+    @_apply
+    def compute(self):
+        """Calls compute() on all Scene datasets"""
+        return
+
+    @_apply
+    def persist(self):
+        """Calls persist() on all Scene datasets"""
+        return
+
+    @_apply
+    def chunk(self, **kwargs):
+        """Calls chunk() on all Scene datasets"""
+        return
+    
     @classmethod
     def get_writer_by_ext(cls, extension):
         """Find the writer matching the ``extension``.
