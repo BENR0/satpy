@@ -44,10 +44,15 @@ LOG = logging.getLogger(__name__)
 def _apply(func):
     fname = func.__name__
     def xr_interface(*args, **kwargs):
-        inst = args[0]
+        inplace = kwargs.pop("inplace", False)
+        if not inplace:
+            inst = args[0].copy()
+        else:
+            inst = args[0]
+        
         for k in inst.datasets.keys():
              inst[k] = getattr(inst[k], fname)(**kwargs)
-        return
+        return inst
     return xr_interface
 
 
