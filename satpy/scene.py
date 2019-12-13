@@ -118,7 +118,7 @@ class Scene:
         if not filenames and (start_time or end_time or base_dir):
             import warnings
             warnings.warn(
-                "Deprecated: Use " +
+                "Deprecated: Use "
                 "'from satpy import find_files_and_readers' to find files")
             from satpy import find_files_and_readers
             filenames = find_files_and_readers(
@@ -133,8 +133,8 @@ class Scene:
         elif start_time or end_time or area:
             import warnings
             warnings.warn(
-                "Deprecated: Use " +
-                "'filter_parameters' to filter loaded files by 'start_time', " +
+                "Deprecated: Use "
+                "'filter_parameters' to filter loaded files by 'start_time', "
                 "'end_time', or 'area'.")
             fp = filter_parameters if filter_parameters else {}
             fp.update({
@@ -1065,7 +1065,8 @@ class Scene:
         return writer.save_datasets(dataarrays, compute=compute, **save_kwargs)
 
     def compute(self, **kwargs):
-        """Calls `compute()` on all Scene datasets.
+        """Call `compute()` on all Scene datasets.
+
         See :meth:`xarray.DataArray.compute` for more details.
         """
         new_scn = self.copy()
@@ -1074,7 +1075,8 @@ class Scene:
         return new_scn
 
     def persist(self, **kwargs):
-        """Calls `persist()` on all Scene datasets.
+        """Call `persist()` on all Scene datasets.
+
         See :meth:`xarray.DataArray.persist` for more details.
         """
         new_scn = self.copy()
@@ -1083,7 +1085,8 @@ class Scene:
         return new_scn
 
     def chunk(self, **kwargs):
-        """Calls `chunk()` on all Scene datasets.
+        """Call `chunk()` on all Scene datasets.
+
         See :meth:`xarray.DataArray.chunk` for more details.
         """
         new_scn = self.copy()
