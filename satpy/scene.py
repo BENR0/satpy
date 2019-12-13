@@ -1065,21 +1065,27 @@ class Scene:
         return writer.save_datasets(dataarrays, compute=compute, **save_kwargs)
 
     def compute(self, **kwargs):
-        """Calls :meth:`xarray.DataArray.compute` on all Scene datasets."""
+        """Calls `compute()` on all Scene datasets.
+        See :meth:`xarray.DataArray.compute` for more details.
+        """
         new_scn = self.copy()
         for k in new_scn.datasets.keys():
             new_scn[k] = new_scn[k].compute(**kwargs)
         return new_scn
 
     def persist(self, **kwargs):
-        """Calls :meth:`xarray.DataArray.persist` on all Scene datasets."""
+        """Calls `persist()` on all Scene datasets.
+        See :meth:`xarray.DataArray.persist` for more details.
+        """
         new_scn = self.copy()
         for k in new_scn.datasets.keys():
             new_scn[k] = new_scn[k].persist(**kwargs)
         return new_scn
 
     def chunk(self, **kwargs):
-        """Calls :meth:`xarray.DataArray.chunk` on all Scene datasets."""
+        """Calls `chunk()` on all Scene datasets.
+        See :meth:`xarray.DataArray.chunk` for more details.
+        """
         new_scn = self.copy()
         for k in new_scn.datasets.keys():
             new_scn[k] = new_scn[k].chunk(**kwargs)
