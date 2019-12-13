@@ -38,21 +38,6 @@ import numpy as np
 LOG = logging.getLogger(__name__)
 
 
-def _apply(func):
-    fname = func.__name__
-    def xr_interface(*args, **kwargs):
-        inplace = kwargs.pop("inplace", False)
-        if not inplace:
-            inst = args[0].copy()
-        else:
-            inst = args[0]
-        
-        for k in inst.datasets.keys():
-             inst[k] = getattr(inst[k], fname)(**kwargs)
-        return inst
-    return xr_interface
-
-
 class DelayedGeneration(KeyError):
     """Mark that a dataset can't be generated without further modification."""
 
@@ -1372,20 +1357,26 @@ class Scene(MetadataObject):
                                           **kwargs)
         return writer.save_datasets(datasets, compute=compute, **save_kwargs)
 
-    @_apply
     def compute(self):
         """Calls compute() on all Scene datasets"""
-        return
+        new_scn = self.copy()
+        for k in new_scn.datasets.keys():
+            new_scn[k] = new_scn[k].compute()
+        return new_scn
 
-    @_apply
     def persist(self):
         """Calls persist() on all Scene datasets"""
-        return
+        new_scn = self.copy()
+        for k in new_scn.datasets.keys():
+            new_scn[k] = new_scn[k].persist()
+        return new_scn
 
-    @_apply
     def chunk(self, **kwargs):
         """Calls chunk() on all Scene datasets"""
-        return
+        new_scn = self.copy()
+        for k in new_scn.datasets.keys():
+            new_scn[k] = new_scn[k].chunk(**kwargs)
+        return new_scn
     
     @classmethod
     def get_writer_by_ext(cls, extension):
