@@ -1377,7 +1377,7 @@ class Scene(MetadataObject):
         for k in new_scn.datasets.keys():
             new_scn[k] = new_scn[k].chunk(**kwargs)
         return new_scn
-    
+
     @classmethod
     def get_writer_by_ext(cls, extension):
         """Find the writer matching the ``extension``.
