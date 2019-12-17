@@ -1224,15 +1224,21 @@ class Scene(MetadataObject):
             # either don't know what the area is or we have an AreaDefinition
             ds = xr.merge(ds_dict.values())
         else:
-            # we have a swath definition and should use lon/lat values
-            lons, lats = mdata['area'].get_lonlats()
-            if not isinstance(lons, DataArray):
-                lons = DataArray(lons, dims=('y', 'x'))
-                lats = DataArray(lats, dims=('y', 'x'))
-            # ds_dict['longitude'] = lons
-            # ds_dict['latitude'] = lats
-            ds = xr.Dataset(ds_dict, coords={"latitude": (["y", "x"], lats),
-                                             "longitude": (["y", "x"], lons)})
+            contains_lats = any(c in mdata["area"].lats.coords for c in ["Latitude", "latitude", "lat"])
+            if contains_lats and len(mdata["area"].lats.coords["Latitude"].shape) == 1:
+                # this covers cases where lat/lon are coords in the DataArray already and are 1 dimensional
+                # for example nucaps data
+                ds = xr.merge(ds_dict.values())
+            else:
+                # we have a swath definition and should use lon/lat values
+                lons, lats = mdata['area'].get_lonlats()
+                if not isinstance(lons, DataArray):
+                    lons = DataArray(lons, dims=('y', 'x'))
+                    lats = DataArray(lats, dims=('y', 'x'))
+                # ds_dict['longitude'] = lons
+                # ds_dict['latitude'] = lats
+                ds = xr.Dataset(ds_dict, coords={"latitude": (["y", "x"], lats),
+                                                 "longitude": (["y", "x"], lons)})
 
         ds.attrs = mdata
         return ds
