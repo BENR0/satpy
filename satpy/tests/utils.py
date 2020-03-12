@@ -19,6 +19,7 @@
 from datetime import datetime
 from satpy.readers.yaml_reader import FileYAMLReader
 from unittest import mock
+from satpy import CHUNK_SIZE
 
 
 def spy_decorator(method_to_decorate):
@@ -335,7 +336,7 @@ class FakeReader(FileYAMLReader):
                 if ds == k:
                     loaded_datasets[ds] = DataArray(data=np.arange(25).reshape(5, 5),
                                                     attrs=ds.to_dict(),
-                                                    dims=['y', 'x'])
+                                                    dims=['y', 'x']).chunk(CHUNK_SIZE)
         return loaded_datasets
 
 
