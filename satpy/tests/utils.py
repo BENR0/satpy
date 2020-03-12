@@ -18,6 +18,7 @@
 
 from datetime import datetime
 from unittest import mock
+from satpy import CHUNK_SIZE
 
 from satpy.dataset import DataID, DataQuery
 from satpy.dataset.dataid import default_id_keys_config, minimal_default_keys_config
@@ -355,7 +356,7 @@ class FakeReader(FileYAMLReader):
                 if ds == k:
                     loaded_datasets[ds] = DataArray(data=np.arange(25).reshape(5, 5),
                                                     attrs=ds.to_dict(),
-                                                    dims=['y', 'x'])
+                                                    dims=['y', 'x']).chunk(CHUNK_SIZE)
         return loaded_datasets
 
 
