@@ -133,6 +133,7 @@ def rec2dict(arr):
         dict_merge(res, ndict)
     return res
 
+
 class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
     """MSG HDF5 format reader
@@ -145,6 +146,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         self._filename_info = filename_info
 
         self._get_header()
+
 
     def get_metadata(self, ds_id, ds_info):
         """
@@ -163,8 +165,6 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         self.mda = defaultdict(dict)
 
-        #self.calib_coeffs = np.array(self["U-MARF/MSG/Level1.5/METADATA/HEADER/RadiometricProcessing/Level15ImageCalibration_ARRAY"])
-
         self.mda["projection_parameters"]["a"] = 6378169.0
         self.mda["projection_parameters"]["b"] = 6356583.8
         self.mda["projection_parameters"]["h"] = 35785831.0
@@ -173,24 +173,18 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         self.platform_id = 324
         self.platform_name = "Meteosat-" + SATNUM[self.platform_id]
         self.mda["platform_name"] = self.platform_name
-        #service = self._filename_info["service"]
-        #if service == "":
         self.mda["service"] = "0DEG"
-        #else:
-         #   self.mda["service"] = service
-        #self.channel_name = CHANNEL_NAMES[self.mda["spectral_channel_id"]]
+
 
     @property
     def start_time(self):
-        #time = self.mda["ImageProductionStats"]["ImageProductionStats_DESCR"]["ActualScanningSummary"]["ForwardScanStart"]
-
         return self._filename_info["slot_time"]
+
 
     @property
     def end_time(self):
-        #time = self.mda["ImageProductionStats"]["ImageProductionStats_DESCR"]["ActualScanningSummary"]["ForwardScanEnd"]
-
         return self._filename_info["slot_time"]
+
 
     def get_xy_from_linecol(self, line, col, offsets, factors):
         """Get the intermediate coordinates from line & col.
@@ -204,9 +198,11 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         return x__, y__
 
+
     def from_msg_space_coordinate(self, x, y, gridsteps):
         COLUMN_DIR_GRID_STEP, LINE_DIR_GRID_STEP = gridsteps
         return x * LINE_DIR_GRID_STEP, y * COLUMN_DIR_GRID_STEP
+
 
     def from_top_left_of_north_west_pixel_zero_based(self, msg_x, msg_y, offsets, gridsteps):
         """
@@ -235,6 +231,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         return self.from_msg_space_coordinate(msg_x_coord, msg_y_coord, gridsteps)
 
+
     def get_area_extent(self, bounds, offsets, gridsteps):
         """Get the area extent of the file."""
 
@@ -243,6 +240,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         ur_x, ur_y = self.from_top_left_of_north_west_pixel_zero_based(bounds[2], bounds[3], offsets, gridsteps)
 
         return ll_x, ll_y, ur_x, ur_y
+
 
     def get_area_def(self, dsid):
         """Get the area definition of the band."""
@@ -293,62 +291,25 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         self.area = area
         return area
 
+
     def get_dataset(self, dataset_id, ds_info):
         ds_path = ds_info.get("file_key", "{}".format(dataset_id))
-        #channel_id = int(self.mda[ds_path]["LineSideInfo_DESCR"]["ChannelId"])
         res = self[ds_path]
-        #calib = ds_info.get("calibration", "{}".format(dataset_id))
-        #res = self.calibrate(res, calib, channel_id) #key.calibration)
         res.attrs["units"] = ds_info["units"]
         res.attrs["wavelength"] = ds_info["wavelength"]
         res.attrs["standard_name"] = ds_info["standard_name"]
         res.attrs["platform_name"] = self.platform_name
         res.attrs["sensor"] = "seviri"
-        res.attrs["satellite_longitude"] = self.mda["projection_parameters"]["SSP_longitude"]
-        res.attrs["satellite_latitude"] = self.mda["projection_parameters"]["SSP_latitude"]
-        res.attrs["satellite_altitude"] = self.mda["projection_parameters"]["h"]
+        res.attrs["modifiers"] = ("sunz_corrected",)
+        res.attrs["orbital_parameters"] = {
+            "projection_longitude": self.mda["projection_parameters"]["SSP_longitude"],
+            "projection_latitude": self.mda["projection_parameters"]["SSP_latitude"],
+            "projection_altitude": self.mda["projection_parameters"]["h"]}
+
         return res
+
 
     def calibrate(self, data, calibration, channel_id):
         """Calibrate the data."""
-        tic = datetime.now()
 
-
-        channel_name = CHANNEL_NAMES[channel_id]
-
-        if calibration == "counts":
-            res = data
-        elif calibration in ["radiance", "reflectance", "brightness_temperature"]:
-            gain = self.calib_coeffs["Cal_Slope"][channel_id - 1]
-            offset = self.calib_coeffs["Cal_Offset"][channel_id - 1]
-            data = data.where(data > 0)
-            res = self._convert_to_radiance(data.astype(np.float32), gain, offset)
-            #line_mask = self.mda["image_segment_line_quality"]["line_validity"] >= 2
-            #line_mask &= self.mda["image_segment_line_quality"]["line_validity"] <= 3
-            #line_mask &= self.mda["image_segment_line_quality"]["line_radiometric_quality"] == 4
-            #line_mask &= self.mda["image_segment_line_quality"]["line_geometric_quality"] == 4
-            #res *= np.choose(line_mask, [1, np.nan])[:, np.newaxis].astype(np.float32)
-
-        if calibration == "reflectance":
-            solar_irradiance = CALIB[self.platform_id][channel_name]["F"]
-            res = self._vis_calibrate(res, solar_irradiance)
-
-        elif calibration == "brightness_temperature":
-            cal_type_list = list(int(x) for x in self.mda["ImageDescription"]["ImageDescription_DESCR"]["Level 1_5 ImageProduction"]["PlannedChanProcessing"].split(","))
-            cal_type = cal_type_list[channel_id - 1]
-            res = self._ir_calibrate(res, channel_name, cal_type)
-
-        logger.debug("Calibration time " + str(datetime.now() - tic))
-        return res
-
-
-def show(data, negate=False):
-    """Show the stretched data.
-    """
-    from PIL import Image as pil
-    data = np.array((data - data.min()) * 255.0 /
-                    (data.max() - data.min()), np.uint8)
-    if negate:
-        data = 255 - data
-    img = pil.fromarray(data)
-    img.show()
+        return NotImplementedError

@@ -135,16 +135,18 @@ def rec2dict(arr):
         dict_merge(res, ndict)
     return res
 
-class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
-    """MSG HDF5 format reader
+class HDF5SEVIRIFileHandler(HDF5FileHandler):
+
+    """SEVIRI HDF5 format reader
     """
 
-    def __init__(self, filename, filename_info, filetype_info):
+    def __init__(self, filename, filename_info, filetype_info, ext_calib_coefs=None):
         """Initialize the reader."""
-        super(HDF5MSGFileHandler, self).__init__(filename, filename_info, filetype_info)
+        super(HDF5SEVIRIFileHandler, self).__init__(filename, filename_info, filetype_info)
 
         self._filename_info = filename_info
+        self.ext_calib_coefs = ext_calib_coefs or {}
 
         self._get_header()
 
@@ -221,7 +223,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         ds_type = "VIS_IR"
 
-        if dsid.name == "HRV":
+        if dsid["name"] == "HRV":
             ds_type = "HRV"
 
         refGrid = self.mda["ImageDescription"]["ImageDescription_DESCR"]["ReferenceGrid" + ds_type]
@@ -284,7 +286,7 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         """Get the area definition of the band."""
         ds_type = "VIS_IR"
 
-        if dsid.name == "HRV":
+        if dsid["name"] == "HRV":
             ds_type = "HRV"
 
         refGrid = self.mda["ImageDescription"]["ImageDescription_DESCR"]["ReferenceGrid" + ds_type]
@@ -319,53 +321,73 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         self.area = area
         return area
 
+
     def get_dataset(self, dataset_id, ds_info):
         ds_path = ds_info.get("file_key", "{}".format(dataset_id))
         channel_id = int(self.mda[ds_path]["LineSideInfo_DESCR"]["ChannelId"])
         res = self["U-MARF/MSG/Level1.5/DATA/" + ds_path + "/IMAGE_DATA"][::-1,:]
-        calib = ds_info.get("calibration", "{}".format(dataset_id))
-        res = self.calibrate(res, calib, channel_id) #key.calibration)
+        res = self.calibrate(res, dataset_id, channel_id) #key.calibration)
+        #res.attrs.update(ds_info) #as alternative to the following three lines but updates to much info
         res.attrs["units"] = ds_info["units"]
         res.attrs["wavelength"] = ds_info["wavelength"]
         res.attrs["standard_name"] = ds_info["standard_name"]
         res.attrs["platform_name"] = self.platform_name
         res.attrs["sensor"] = "seviri"
-        res.attrs["satellite_longitude"] = self.mda["projection_parameters"]["SSP_longitude"]
-        res.attrs["satellite_latitude"] = self.mda["projection_parameters"]["SSP_latitude"]
-        res.attrs["satellite_altitude"] = self.mda["projection_parameters"]["h"]
+        res.attrs["orbital_parameters"] = {
+            "projection_longitude": self.mda["projection_parameters"]["SSP_longitude"],
+            "projection_latitude": self.mda["projection_parameters"]["SSP_latitude"],
+            "projection_altitude": self.mda["projection_parameters"]["h"]}
+
         return res
 
-    def calibrate(self, data, calibration, channel_id):
+
+    def calibrate(self, dataset, dataset_id, channel_id):
         """Calibrate the data."""
-        tic = datetime.now()
-
-
-        channel_name = CHANNEL_NAMES[channel_id]
+        calibration = dataset_id["calibration"]
 
         if calibration == "counts":
-            res = data
+            res = dataset
         elif calibration in ["radiance", "reflectance", "brightness_temperature"]:
-            gain = self.calib_coeffs["Cal_Slope"][channel_id - 1]
-            offset = self.calib_coeffs["Cal_Offset"][channel_id - 1]
-            data = data.where(data > 0)
-            res = self._convert_to_radiance(data.astype(np.float32), gain, offset)
-            #line_mask = self.mda["image_segment_line_quality"]["line_validity"] >= 2
-            #line_mask &= self.mda["image_segment_line_quality"]["line_validity"] <= 3
-            #line_mask &= self.mda["image_segment_line_quality"]["line_radiometric_quality"] == 4
-            #line_mask &= self.mda["image_segment_line_quality"]["line_geometric_quality"] == 4
-            #res *= np.choose(line_mask, [1, np.nan])[:, np.newaxis].astype(np.float32)
+            dataset = dataset.where(dataset != 0).astype(np.float32)
 
-        if calibration == "reflectance":
-            solar_irradiance = CALIB[self.platform_id][channel_name]["F"]
-            res = self._vis_calibrate(res, solar_irradiance)
+        channel = dataset_id["name"]
 
-        elif calibration == "brightness_temperature":
-            cal_type_list = list(int(x) for x in self.mda["ImageDescription"]["ImageDescription_DESCR"]["Level 1_5 ImageProduction"]["PlannedChanProcessing"].decode(encoding="utf-8").split(","))
-            cal_type = cal_type_list[channel_id - 1]
-            res = self._ir_calibrate(res, channel_name, cal_type)
+        calib = SEVIRICalibrationHandler(
+            platform_id=int(self.platform_id),
+            channel_name=channel,
+            coefs=self._get_calib_coefs(dataset, channel_id),
+            calib_mode="NOMINAL",
+            scan_time=self.start_time
+        )
 
-        logger.debug("Calibration time " + str(datetime.now() - tic))
-        return res
+        return calib.calibrate(dataset, calibration)
+
+
+    def _get_calib_coefs(self, dataset, channel_id):
+        """Get coefficients for calibration from counts to radiance.
+        MPEF MSG calibration coefficients (gain and offset).
+        """
+        channel = CHANNEL_NAMES[channel_id]
+        offset = self.calib_coeffs["Cal_Offset"][channel_id - 1]
+        gain = self.calib_coeffs["Cal_Slope"][channel_id - 1]
+
+        cal_type_list = list(int(x) for x in self.mda["ImageDescription"]["ImageDescription_DESCR"]["Level 1_5 ImageProduction"]["PlannedChanProcessing"].decode(encoding="utf-8").split(","))
+        cal_type = cal_type_list[channel_id - 1]
+        # Only one calibration (GSICS) available
+        return {
+            "coefs": {
+                "GSICS": {
+                    "gain": gain,
+                    "offset": offset
+                },
+                "NOMINAL": {
+                    "gain": gain,
+                    "offset": offset
+                },
+                "EXTERNAL": self.ext_calib_coefs.get(channel, {})
+            },
+            "radiance_type": cal_type
+        }
 
 
 def show(data, negate=False):

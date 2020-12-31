@@ -1,13 +1,13 @@
 reader:
-  description: MSG HDF5 Reader
-  name: hdf5_msg
+  description: SEVIRI HDF5 Reader
+  name: seviri_l1b_h5
   sensors: [seviri]
   default_channels: [HRV, IR_016, IR_039, IR_087, IR_097, IR_108, IR_120, IR_134, VIS006, VIS008, WV_062, WV_073]
   reader: !!python/name:satpy.readers.yaml_reader.FileYAMLReader
 
 file_types:
     HDF5_MSG:
-        file_reader: !!python/name:satpy.readers.hdf5_msg.HDF5MSGFileHandler
+        file_reader: !!python/name:satpy.readers.seviri_l1b_h5.HDF5SEVIRIFileHandler
         file_patterns: ['{platform_shortname:4s}-{instrument:4s}-MSG{data_level:2s}-{base_algo_version:4s}-{prod_algo_version:2s}-{reception_stop_time:%Y%m%d%H%M%S}.{subseconds:9s}Z-{processing_start_time:%Y%m%d%H%M%S}-{order_number:7s}-{seq:1s}.h5']
 
 datasets:
@@ -65,7 +65,7 @@ datasets:
     wavelength: [3.48, 3.92, 4.36]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: K
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -81,7 +81,7 @@ datasets:
     wavelength: [5.35, 6.25, 7.15]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: "K"
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -97,7 +97,7 @@ datasets:
     wavelength: [6.85, 7.35, 7.85]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: "K"
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -113,7 +113,7 @@ datasets:
     wavelength: [8.3, 8.7, 9.1]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: K
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -129,7 +129,7 @@ datasets:
     wavelength: [9.38, 9.66, 9.94]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: K
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -145,7 +145,7 @@ datasets:
     wavelength: [9.8, 10.8, 11.8]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: K
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -161,7 +161,7 @@ datasets:
     wavelength: [11.0, 12.0, 13.0]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: K
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
@@ -177,7 +177,7 @@ datasets:
     wavelength: [12.4, 13.4, 14.4]
     calibration:
       brightness_temperature:
-        standard_name: brightness_temperature
+        standard_name: toa_brightness_temperature
         units: K
       radiance:
         standard_name: toa_outgoing_radiance_per_unit_wavelength
