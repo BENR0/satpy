@@ -1934,6 +1934,52 @@ class TestSceneLoading(unittest.TestCase):
         scene = scene.chunk(chunks=2)
         self.assertTupleEqual(scene['ds1'].data.chunksize, (2, 2))
 
+    @mock.patch('satpy.scene.Scene.create_reader_instances')
+    def test_compute_pass_through(self, cri):
+        """Test pass through of xarray compute."""
+        import numpy as np
+        import satpy.scene
+        from satpy.tests.utils import FakeReader
+        cri.return_value = {'fake_reader': FakeReader(
+            'fake_reader', 'fake_sensor')}
+        scene = satpy.scene.Scene(filenames=['bla'],
+                                  base_dir='bli',
+                                  reader='fake_reader')
+        scene.load(['ds1'])
+        scene = scene.compute()
+        self.assertTrue(isinstance(scene['ds1'].data, np.ndarray))
+
+    @mock.patch('satpy.scene.Scene.create_reader_instances')
+    def test_persist_pass_through(self, cri):
+        """Test pass through of xarray persist."""
+        import satpy.scene
+        from satpy.tests.utils import FakeReader
+        from dask.array.utils import assert_eq
+        cri.return_value = {'fake_reader': FakeReader(
+            'fake_reader', 'fake_sensor')}
+        scene = satpy.scene.Scene(filenames=['bla'],
+                                  base_dir='bli',
+                                  reader='fake_reader')
+        scene.load(['ds1'])
+        scenep = scene.persist()
+        assert_eq(scene['ds1'].data, scenep['ds1'].data)
+        self.assertTrue(set(scenep['ds1'].data.dask).issubset(scene['ds1'].data.dask))
+        self.assertEqual(len(scenep["ds1"].data.dask), scenep['ds1'].data.npartitions)
+
+    @mock.patch('satpy.scene.Scene.create_reader_instances')
+    def test_chunk_pass_through(self, cri):
+        """Test pass through of xarray chunk."""
+        import satpy.scene
+        from satpy.tests.utils import FakeReader
+        cri.return_value = {'fake_reader': FakeReader(
+            'fake_reader', 'fake_sensor')}
+        scene = satpy.scene.Scene(filenames=['bla'],
+                                  base_dir='bli',
+                                  reader='fake_reader')
+        scene.load(['ds1'])
+        scene = scene.chunk(chunks=2)
+        self.assertTupleEqual(scene['ds1'].data.chunksize, (2, 2))
+
 
 class TestSceneResampling(unittest.TestCase):
     """Test resampling a Scene to another Scene object."""
