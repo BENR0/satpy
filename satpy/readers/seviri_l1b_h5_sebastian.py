@@ -33,20 +33,21 @@ TODO:
 import logging
 from datetime import datetime, timedelta
 
-import numpy as np
-import h5py
-
 from pyresample import geometry
 from satpy.readers.hdf5_utils import HDF5FileHandler
 
 from satpy.readers.seviri_base import SEVIRICalibrationHandler
-from satpy.readers.seviri_base import (CHANNEL_NAMES, CALIB, SATNUM)
-from satpy.readers.eum_base import timecds2datetime
+from satpy.readers.seviri_base import SATNUM
+# from satpy.readers.eum_base import timecds2datetime
+
+import collections
+from collections import defaultdict
 
 logger = logging.getLogger("hdf5_msg")
 
 
 def make_time_cds_expanded(tcds_array):
+    """Create datetime from timedelta."""
     return (datetime(1958, 1, 1) +
             timedelta(days=int(tcds_array["days"]),
                       milliseconds=int(tcds_array["milliseconds"]),
@@ -55,7 +56,8 @@ def make_time_cds_expanded(tcds_array):
 
 
 def subdict(keys, value):
-    """
+    """Create sub dictionaries from lists.
+
     Takes a list and a value and if the list contains more than one key
     subdictionarys for each key will be created.
 
@@ -81,29 +83,27 @@ def subdict(keys, value):
         tdict[key] = subdict(keys, value)
     return tdict
 
-import collections
-from collections import defaultdict
-
 
 def dict_merge(dct, merge_dct):
-    """
+    """Merge dicts recursively.
+
     Recursive dict merge. Inspired by :meth:``dict.update()``, instead of
     updating only top-level keys, dict_merge recurses down into dicts nested
     to an arbitrary depth, updating keys. The ``merge_dct`` is merged into
     ``dct``.
-    
+
     Parameters
     ----------
     dct : dict
         dict onto which the merge is executed
     merge_dct : dct
         dct merged into dct
-        
+
     Returns
     -------
     None
     """
-    for k, v in merge_dct.iteritems():
+    for k, _ in merge_dct.items():
         if (k in dct and isinstance(dct[k], dict) and isinstance(merge_dct[k], collections.Mapping)):
             dict_merge(dct[k], merge_dct[k])
         else:
@@ -111,8 +111,7 @@ def dict_merge(dct, merge_dct):
 
 
 def rec2dict(arr):
-    """
-    Converts an array of attributes to a dictionary.
+    """Convert an array of attributes to a dictionary.
 
     Parameters
     ----------
@@ -127,7 +126,6 @@ def rec2dict(arr):
     res = {}
     for dtuple in arr:
         fullkey = dtuple[0].split("-")
-        key = fullkey[0]
         data = dtuple[1]
         ndict = subdict(fullkey, data)
         dict_merge(res, ndict)
@@ -135,9 +133,7 @@ def rec2dict(arr):
 
 
 class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
-
-    """MSG HDF5 format reader
-    """
+    """MSG HDF5 format reader."""
 
     def __init__(self, filename, filename_info, filetype_info):
         """Initialize the reader."""
@@ -147,22 +143,12 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         self._get_header()
 
-
     def get_metadata(self, ds_id, ds_info):
-        """
-        Get the metadata for specific dataset listed in yaml config
-
-
-        :param ds_id:
-        :param ds_info:
-        :return:
-        """
+        """Get the metadata for specific dataset listed in yaml config."""
         pass
 
-
     def _get_header(self):
-        """Read the header info, and fill the metadata dictionary"""
-
+        """Read the header info, and fill the metadata dictionary."""
         self.mda = defaultdict(dict)
 
         self.mda["projection_parameters"]["a"] = 6378169.0
@@ -175,16 +161,15 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         self.mda["platform_name"] = self.platform_name
         self.mda["service"] = "0DEG"
 
-
     @property
     def start_time(self):
+        """Start time."""
         return self._filename_info["slot_time"]
-
 
     @property
     def end_time(self):
+        """End time."""
         return self._filename_info["slot_time"]
-
 
     def get_xy_from_linecol(self, line, col, offsets, factors):
         """Get the intermediate coordinates from line & col.
@@ -198,15 +183,13 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         return x__, y__
 
-
     def from_msg_space_coordinate(self, x, y, gridsteps):
+        """MSG coordinates."""
         COLUMN_DIR_GRID_STEP, LINE_DIR_GRID_STEP = gridsteps
         return x * LINE_DIR_GRID_STEP, y * COLUMN_DIR_GRID_STEP
 
-
     def from_top_left_of_north_west_pixel_zero_based(self, msg_x, msg_y, offsets, gridsteps):
-        """
-        Calculate coordinates based on pixel count and gridstep.
+        """Calculate coordinates based on pixel count and gridstep.
 
         Parameters
         ----------
@@ -231,29 +214,24 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         return self.from_msg_space_coordinate(msg_x_coord, msg_y_coord, gridsteps)
 
-
     def get_area_extent(self, bounds, offsets, gridsteps):
         """Get the area extent of the file."""
-
         ll_x, ll_y = self.from_top_left_of_north_west_pixel_zero_based(bounds[0], bounds[1], offsets, gridsteps)
 
         ur_x, ur_y = self.from_top_left_of_north_west_pixel_zero_based(bounds[2], bounds[3], offsets, gridsteps)
 
         return ll_x, ll_y, ur_x, ur_y
 
-
     def get_area_def(self, dsid):
         """Get the area definition of the band."""
-        ds_type = "VIS_IR"
-
         nlines = 3712
         ncols = 3712
         linegridstep = 3.00040316582 * 1000
         colgridstep = 3.00040316582 * 1000
         gridsteps = (colgridstep, linegridstep)
 
-        loff = nlines/2
-        coff = ncols/2
+        loff = nlines / 2
+        coff = ncols / 2
         offsets = (coff, loff)
 
         ll_x = 1489
@@ -261,9 +239,8 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         ur_x = 2456
         ur_y = 54
         bounds = (ll_x, ll_y, ur_x, ur_y)
-        ncols = ur_x -ll_x
+        ncols = ur_x - ll_x
         nlines = ll_y - ur_y
-
 
         area_extent = self.get_area_extent(bounds, offsets, gridsteps)
 
@@ -291,8 +268,8 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
         self.area = area
         return area
 
-
     def get_dataset(self, dataset_id, ds_info):
+        """Get the dataset."""
         ds_path = ds_info.get("file_key", "{}".format(dataset_id))
         res = self[ds_path]
         res.attrs["units"] = ds_info["units"]
@@ -308,8 +285,6 @@ class HDF5MSGFileHandler(HDF5FileHandler, SEVIRICalibrationHandler):
 
         return res
 
-
     def calibrate(self, data, calibration, channel_id):
         """Calibrate the data."""
-
         return NotImplementedError
