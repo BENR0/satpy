@@ -463,9 +463,19 @@ to ask questions in your pull request or on the :ref:`Pytroll Slack <dev_help>`.
 The python file
 ---------------
 
-The python files needs to implement a file
-handler class for each file type that we want to read. Such a class
-needs to implement a few methods:
+The python files needs to implement a file handler class for each file type
+that we want to read. The file handler should subclass :class:`satpy.readers.file_handlers.BaseFileHandler`
+or if you implement a file handler for more common formats like HDF4, HDF5 or NetCDF4 subclassing one
+of the follwing utility classes:
+
+ - :class:`satpy.readers.hdf4_utils.HDF4FileHandler`
+ - :class:`satpy.readers.hdf5_utils.HDF5FileHandler`
+ - :class:`satpy.readers.netcdf_utils.NetCDF4FileHandler`
+
+might be helpfull. These supply some conveniance methods but are not required to read these formats.
+In many cases using the :func:`xarray.open_dataset` function might be a better idea (see point ``get_dataset`` below).
+
+The file handler class needs to implement a few methods:
 
  - the ``__init__`` method, that takes as arguments
 
@@ -525,14 +535,6 @@ for the ``start_time`` and ``end_time``. Note that these properties will
 be assigned to the ``start_time`` and ``end_time`` metadata of any DataArrays
 returned by ``get_dataset``, any existing values will be overwritten.
 
-If you are writing a file handler for more common formats like HDF4, HDF5, or
-NetCDF4 you may want to consider using the utility base classes for each:
-:class:`satpy.readers.hdf4_utils.HDF4FileHandler`,
-:class:`satpy.readers.hdf5_utils.HDF5FileHandler`, and
-:class:`satpy.readers.netcdf_utils.NetCDF4FileHandler`. These were added as
-a convenience and are not required to read these formats. In many cases using
-the :func:`xarray.open_dataset` function in a custom file handler is a much
-better idea.
 
 .. note::
    Be careful about the data types of the DataArray attributes (`.attrs`) your reader is
